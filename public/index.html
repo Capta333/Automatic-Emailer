@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Campaigner</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">✉️ <span>Campaigner</span></div>
+      <nav>
+        <a data-view="dashboard" class="active">📊 Dashboard</a>
+        <a data-view="contacts">👥 Contacts</a>
+        <div id="verticalNav" class="subnav"></div>
+        <a data-view="scrape">🔎 Find Leads</a>
+        <a data-view="templates">📝 Templates</a>
+        <a data-view="campaigns">🚀 Campaigns</a>
+        <a data-view="tracking">📈 Tracking</a>
+        <a data-view="settings">⚙️ Settings</a>
+      </nav>
+      <div class="mode-pill" id="modePill">checking…</div>
+      <div id="userBox" style="margin-top:10px;padding:0 4px"></div>
+    </aside>
+
+    <main id="main">
+      <div class="loading">Loading…</div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <div id="modal" class="modal-backdrop hidden"><div class="modal" id="modalBox"></div></div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
