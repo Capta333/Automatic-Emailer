@@ -1,5 +1,7 @@
 # ✉️ Email Campaigner
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Capta333/Automatic-Emailer)
+
 An all-in-one, self-hosted email campaign tool with a clean GUI:
 
 - **Contacts** — add, **upload Excel/CSV** or paste CSV, export, tag, consent + unsubscribe
