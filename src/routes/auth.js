@@ -38,6 +38,20 @@ export default async function authRoutes(app) {
     return { ok: true, user: { id: row.id, email: row.email, name: row.name, role: row.role } };
   });
 
+  // Self-serve signup for invited/demo users. New accounts are regular users;
+  // admins can promote or remove them later in Settings.
+  app.post('/api/auth/signup', async (req, reply) => {
+    if (config.authDisabled) return reply.code(400).send({ error: 'auth is disabled' });
+    const { email, name, password } = req.body || {};
+    try {
+      const user = createUser({ email, name, password, role: 'user' });
+      setSessionCookie(reply, createSession(user.id));
+      return { ok: true, user };
+    } catch (err) {
+      return reply.code(400).send({ error: err.message });
+    }
+  });
+
   app.post('/api/auth/logout', async (req, reply) => {
     destroySession(sessionCookieToken(req));
     clearSessionCookie(reply);

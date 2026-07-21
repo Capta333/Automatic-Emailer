@@ -20,6 +20,8 @@
     button:disabled{opacity:.6;cursor:default}
     .err{background:rgba(248,113,113,.12);border:1px solid var(--red);color:#fecaca;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:16px;display:none}
     .hint{color:var(--muted);font-size:12px;margin-top:14px;text-align:center}
+    .switch{color:var(--muted);font-size:13px;margin-top:16px;text-align:center}
+    .switch a{color:var(--accent);cursor:pointer;text-decoration:none;font-weight:700}
   </style>
 </head>
 <body>
@@ -38,38 +40,57 @@
       <div class="err" id="err"></div>
       <button id="submit" type="submit">Sign in</button>
     </form>
+    <p class="switch" id="signupSwitch">Need access? <a id="modeLink">Create an account</a></p>
     <p class="hint" id="setupHint" style="display:none">No accounts yet — create the first admin to get started.</p>
   </div>
 
   <script>
     const $ = (s) => document.querySelector(s);
-    let mode = 'login'; // 'login' | 'setup'
+    let mode = 'login'; // 'login' | 'setup' | 'signup'
 
     function showErr(m) { const e = $('#err'); e.textContent = m; e.style.display = m ? 'block' : 'none'; }
+    function setMode(next) {
+      mode = next;
+      showErr('');
+      const creating = mode === 'setup' || mode === 'signup';
+      $('#nameRow').style.display = creating ? 'block' : 'none';
+      $('#password').setAttribute('autocomplete', creating ? 'new-password' : 'current-password');
+      $('#sub').textContent = mode === 'setup'
+        ? 'Welcome — set up your admin account.'
+        : mode === 'signup'
+          ? 'Create your account to continue.'
+          : 'Sign in to continue.';
+      $('#submit').textContent = mode === 'setup'
+        ? 'Create admin & continue'
+        : mode === 'signup'
+          ? 'Create account'
+          : 'Sign in';
+      $('#signupSwitch').style.display = mode === 'setup' ? 'none' : 'block';
+      $('#modeLink').textContent = mode === 'signup' ? 'Sign in instead' : 'Create an account';
+    }
 
     async function init() {
       try {
         const me = await fetch('/api/auth/me').then((r) => r.json());
         if (me.authDisabled || me.user) { location.href = '/'; return; } // already in
         if (me.needsSetup) {
-          mode = 'setup';
-          $('#sub').textContent = 'Welcome — set up your admin account.';
-          $('#nameRow').style.display = 'block';
-          $('#password').setAttribute('autocomplete', 'new-password');
-          $('#submit').textContent = 'Create admin & continue';
+          setMode('setup');
           $('#setupHint').style.display = 'block';
         }
       } catch {}
     }
+
+    $('#modeLink').addEventListener('click', () => setMode(mode === 'signup' ? 'login' : 'signup'));
 
     $('#form').addEventListener('submit', async (e) => {
       e.preventDefault();
       showErr('');
       const btn = $('#submit'); btn.disabled = true;
       const body = { email: $('#email').value.trim(), password: $('#password').value };
-      if (mode === 'setup') body.name = $('#name').value.trim();
+      if (mode === 'setup' || mode === 'signup') body.name = $('#name').value.trim();
       try {
-        const res = await fetch(mode === 'setup' ? '/api/auth/setup' : '/api/auth/login', {
+        const path = mode === 'setup' ? '/api/auth/setup' : mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+        const res = await fetch(path, {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => ({}));
