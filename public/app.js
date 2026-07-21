@@ -474,6 +474,65 @@ function renderScrapeResults(r) {
   });
 }
 
+views.testEmail = async () => {
+  const health = await api('/api/health').catch(() => ({ dryRun: true }));
+  main.innerHTML = `
+    <h1>Test Email</h1>
+    <p class="subtitle">Send one message without creating contacts, templates, or campaigns.</p>
+    <div class="banner ${health.dryRun ? 'warn' : ''}">
+      ${health.dryRun
+        ? '<b>Dry-run mode is ON.</b> This will log the test only; no email will actually leave the app.'
+        : '<b>Live sending is ON.</b> This will send one real email through the configured SMTP account.'}
+    </div>
+    <div class="panel">
+      <h2>Single test send</h2>
+      <div class="field"><label>To</label><input id="test_to" placeholder="you@example.com" autocomplete="email" /></div>
+      <div class="field"><label>Subject</label><input id="test_subject" value="Test from Email Campaigner" /></div>
+      <div class="field"><label>Body (HTML)</label><textarea id="test_body" style="min-height:180px"><p>Hello! This is a test email from Email Campaigner.</p></textarea></div>
+      <div class="row" style="align-items:center">
+        <button id="test_send">Send test</button>
+        <button class="ghost" id="test_fill">Reset sample</button>
+      </div>
+      <p class="hint">Use this to verify login, SMTP settings, and basic delivery before touching campaign workflows.</p>
+    </div>
+    <div class="panel" id="test_result" style="display:none"></div>`;
+
+  $('#test_fill').addEventListener('click', () => {
+    $('#test_subject').value = 'Test from Email Campaigner';
+    $('#test_body').value = '<p>Hello! This is a test email from Email Campaigner.</p>';
+  });
+
+  $('#test_send').addEventListener('click', async () => {
+    const to = $('#test_to').value.trim();
+    if (!to || !to.includes('@')) return toast('Enter a valid recipient email', 'err');
+    const btn = $('#test_send');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    try {
+      const r = await api('/api/send-single', {
+        method: 'POST',
+        body: { to, subject: $('#test_subject').value, html: $('#test_body').value },
+      });
+      $('#test_result').style.display = 'block';
+      $('#test_result').innerHTML = `
+        <h2>${r.dryRun ? 'Dry-run logged' : 'Email sent'}</h2>
+        <table>
+          <tr><td>Recipient</td><td>${esc(r.to)}</td></tr>
+          <tr><td>Mode</td><td>${r.dryRun ? '<span class="badge warn">DRY RUN</span>' : '<span class="badge ok">LIVE</span>'}</td></tr>
+          <tr><td>Message ID</td><td>${r.messageId ? esc(r.messageId) : '<span class="muted">not available</span>'}</td></tr>
+        </table>`;
+      toast(r.dryRun ? `DRY RUN - logged test for ${to}` : `Sent test to ${to}`);
+    } catch (e) {
+      toast(e.message, 'err');
+      $('#test_result').style.display = 'block';
+      $('#test_result').innerHTML = `<h2>Send failed</h2><div class="banner warn">${esc(e.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send test';
+    }
+  });
+};
+
 // ── Templates (with AI compose) ──────────────────────────
 views.templates = async () => {
   const { templates } = await api('/api/templates');
