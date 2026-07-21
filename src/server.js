@@ -39,6 +39,7 @@ app.addHook('onRequest', async (req, reply) => {
   const isPublic =
     path === '/login' ||
     path.startsWith('/api/auth/') ||
+    path === '/api/health' ||
     path === '/unsubscribe' ||
     path.startsWith('/t/') ||
     path === '/webhooks/make';
