@@ -551,15 +551,23 @@ function renderScrapeResults(r) {
 }
 
 views.testEmail = async () => {
-  const health = await api('/api/health').catch(() => ({ dryRun: true }));
+  const settings = await api('/api/settings');
+  const smtpReady = !!settings.smtp?.host && !!settings.smtp?.user && !!settings.smtp?.pass;
   main.innerHTML = `
     <h1>Test Email</h1>
     <p class="subtitle">Send one message without creating contacts, templates, or campaigns.</p>
-    <div class="banner ${health.dryRun ? 'warn' : ''}">
-      ${health.dryRun
-        ? '<b>Dry-run mode is ON.</b> This will log the test only; no email will actually leave the app.'
-        : '<b>Live sending is ON.</b> This will send one real email through the configured SMTP account.'}
+    <div class="panel test-status">
+      <div>
+        <h2>Sending status</h2>
+        <p class="hint">Current sender: <b>${esc(settings.sender?.name || 'Not set')}</b> &lt;${esc(settings.sender?.email || 'not configured')}&gt;</p>
+      </div>
+      <div class="status-stack">
+        <span class="badge ${settings.dryRun ? 'warn' : 'ok'}">${settings.dryRun ? 'DRY RUN' : 'LIVE SENDING'}</span>
+        <span class="badge ${smtpReady ? 'ok' : 'bad'}">${smtpReady ? 'SMTP READY' : 'SMTP NOT CONFIGURED'}</span>
+      </div>
     </div>
+    ${settings.dryRun ? `<div class="banner warn"><b>Dry-run mode is ON.</b> This will log the test only; no email will actually leave the app. Use the button below to switch to live sending after SMTP is configured.</div>` : ''}
+    ${smtpReady ? '' : `<div class="banner warn"><b>SMTP is not configured.</b> To send from yourself, add your SMTP host, username, and app password in Settings first.</div>`}
     <div class="panel">
       <h2>Single test send</h2>
       <div class="field"><label>To</label><input id="test_to" placeholder="you@example.com" autocomplete="email" /></div>
@@ -567,6 +575,8 @@ views.testEmail = async () => {
       <div class="field"><label>Body (HTML)</label><textarea id="test_body" style="min-height:180px"><p>Hello! This is a test email from Email Campaigner.</p></textarea></div>
       <div class="row" style="align-items:center">
         <button id="test_send">Send test</button>
+        <button class="ghost" id="test_toggle_live">${settings.dryRun ? 'Turn off dry run' : 'Turn dry run back on'}</button>
+        <button class="ghost" id="test_settings">Open SMTP settings</button>
         <button class="ghost" id="test_fill">Reset sample</button>
       </div>
       <p class="hint">Use this to verify login, SMTP settings, and basic delivery before touching campaign workflows.</p>
@@ -576,6 +586,16 @@ views.testEmail = async () => {
   $('#test_fill').addEventListener('click', () => {
     $('#test_subject').value = 'Test from Email Campaigner';
     $('#test_body').value = '<p>Hello! This is a test email from Email Campaigner.</p>';
+  });
+  $('#test_settings').addEventListener('click', () => go('settings'));
+  $('#test_toggle_live').addEventListener('click', async () => {
+    if (settings.dryRun && !smtpReady) return toast('Configure SMTP before turning off dry run', 'err');
+    try {
+      await api('/api/settings', { method: 'PUT', body: { dryRun: !settings.dryRun } });
+      toast(settings.dryRun ? 'Dry run is off. Live sends enabled.' : 'Dry run is back on.');
+      refreshMode();
+      render();
+    } catch (e) { toast(e.message, 'err'); }
   });
 
   $('#test_send').addEventListener('click', async () => {
