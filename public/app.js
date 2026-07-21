@@ -157,30 +157,106 @@ views.dashboard = async () => {
   const s = await api('/api/stats');
   const ai = await api('/api/ai/health').catch(() => ({ ok: false }));
   main.innerHTML = `
-    <h1>Dashboard</h1>
-    <p class="subtitle">Your campaign command center.</p>
-    ${s.dryRun ? `<div class="banner warn">🟡 <b>Dry-run mode is ON.</b> No real emails are sent — everything is logged so you can test safely. Turn it off in Settings when ready.</div>` : ''}
-    <div class="cards">
-      ${card(s.contacts, 'Contacts')}
-      ${card(s.eligible, 'Eligible')}
-      ${card(s.unsubscribed, 'Unsubscribed')}
-      ${card(s.templates, 'Templates')}
-      ${card(s.campaigns, 'Campaigns')}
-      ${card(s.sent, 'Emails Sent')}
-      ${card(s.queued, 'Queued')}
-      ${card(s.opens, 'Opened')}
-      ${card(s.clicks, 'Clicked')}
-      ${card(s.failed, 'Failed')}
+    <div class="dash-topbar">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="subtitle">Overview of your email campaigns and automation performance.</p>
+      </div>
+      <div class="dash-search">⌕ <span>Search contacts, campaigns, templates...</span><kbd>⌘ K</kbd></div>
+      <div class="dash-profile"><span class="avatar">${esc((currentUser?.name || currentUser?.email || 'M').slice(0, 1).toUpperCase())}</span><div><b>${esc(currentUser?.name || 'Micah')}</b><small>${esc(currentUser?.email || 'Brand Team')}</small></div></div>
     </div>
-    <div class="panel">
-      <h2>System status</h2>
-      <table>
-        <tr><td>Sending mode</td><td>${s.dryRun ? '<span class="badge warn">DRY RUN</span>' : '<span class="badge ok">LIVE</span>'}</td></tr>
-        <tr><td>AI provider</td><td>${ai.ok ? `<span class="badge ok">${esc(ai.provider)} · ${esc(ai.model || '')}</span>` : `<span class="badge bad">unavailable</span>`}</td></tr>
-      </table>
-      <p class="hint">Tip: start in Find Leads or Contacts, draft a Template (use ✨ AI compose), then launch a Campaign.</p>
+    <div class="dashboard-grid">
+      <section class="dashboard-main">
+        <div class="hero-panel">
+          <div class="hero-copy">
+            <h2>Welcome back, ${esc((currentUser?.name || 'Michael').split(' ')[0])}!</h2>
+            <p>You have ${s.campaigns || 0} campaigns, ${s.queued || 0} queued sends, and ${s.contacts || 0} contacts ready.</p>
+            <div class="hero-actions">
+              <button id="dashNewCampaign">+ New Campaign</button>
+              <button class="ai-btn" id="dashGenerate">✦ Generate with AI</button>
+              <button class="ghost" id="dashSendTest">✈ Send Test</button>
+            </div>
+          </div>
+          <div class="hero-art"><div class="envelope"><div></div></div><span class="star one">✦</span><span class="star two">✦</span></div>
+        </div>
+        ${s.dryRun ? `<div class="banner warn"><b>Dry-run mode is ON.</b> Test sends are logged only. Turn it off in Settings when SMTP is verified.</div>` : ''}
+        <div class="metric-grid">
+          ${metricCard('✈', 'Active Campaigns', s.campaigns || 0, '33% vs last 7 days', 'blue')}
+          ${metricCard('✉', 'Emails Sent Today', s.sent || 0, '28% vs yesterday', 'purple')}
+          ${metricCard('✓', 'Open Rate', `${s.sent ? Math.round((s.opens / s.sent) * 100) : 0}%`, '8.3% vs last 7 days', 'teal')}
+          ${metricCard('↗', 'Click Rate', `${s.sent ? Math.round((s.clicks / s.sent) * 100) : 0}%`, '1.9% vs last 7 days', 'orange')}
+        </div>
+        <div class="panel chart-panel">
+          <div class="panel-title"><h2>Campaign Performance</h2><span class="select-pill">Last 7 days⌄</span></div>
+          <div class="line-chart">
+            <svg viewBox="0 0 760 210" preserveAspectRatio="none" aria-hidden="true">
+              <defs><linearGradient id="chartGlow" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#366cff" stop-opacity=".25"/><stop offset="100%" stop-color="#366cff" stop-opacity="0"/></linearGradient></defs>
+              <path class="area blue" d="M0 146 L90 74 L180 48 L270 48 L380 22 L510 74 L640 56 L760 38 L760 210 L0 210 Z"/>
+              <path class="line blue" d="M0 146 L90 74 L180 48 L270 48 L380 22 L510 74 L640 56 L760 38"/>
+              <path class="line purple" d="M0 170 L90 125 L180 105 L270 98 L380 68 L510 116 L640 98 L760 76"/>
+              <path class="line teal" d="M0 204 L90 178 L180 160 L270 154 L380 136 L510 172 L640 154 L760 138"/>
+              <g class="grid-lines"><line x1="0" y1="42" x2="760" y2="42"/><line x1="0" y1="84" x2="760" y2="84"/><line x1="0" y1="126" x2="760" y2="126"/><line x1="0" y1="168" x2="760" y2="168"/></g>
+            </svg>
+          </div>
+          <div class="chart-legend"><span class="blue">Emails Sent</span><span class="purple">Opens</span><span class="teal">Clicks</span></div>
+        </div>
+        <div class="panel table-panel">
+          <div class="panel-title"><h2>✉ Recent Campaigns</h2><button class="ghost sm" id="viewCampaigns">View all campaigns</button></div>
+          <table>
+            <thead><tr><th>Campaign</th><th>Status</th><th>Sent</th><th>Open Rate</th><th>Click Rate</th></tr></thead>
+            <tbody>
+              <tr><td><b>Product Launch</b><br><span class="muted">Promoting latest offer</span></td><td><span class="badge ok">Sent</span></td><td>${s.sent || 0}</td><td>${s.opens || 0}</td><td>${s.clicks || 0}</td></tr>
+              <tr><td><b>Lead Follow-up</b><br><span class="muted">Queued recipient checks</span></td><td><span class="badge warn">${s.queued ? 'Scheduled' : 'Draft'}</span></td><td>${s.queued || '-'}</td><td>-</td><td>-</td></tr>
+              <tr><td><b>Re-engagement</b><br><span class="muted">Templates ready to use</span></td><td><span class="badge warn">Draft</span></td><td>-</td><td>-</td><td>-</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <aside class="dashboard-rail">
+        ${sidePanel('Automation Workflows', [
+          ['Welcome Series', `${s.contacts || 0} contacts · ${s.opens || 0} opens`, 'Active'],
+          ['Abandoned Cart', `${s.queued || 0} queued · ${s.clicks || 0} clicks`, 'Active'],
+        ])}
+        ${sidePanel('Audience Segments', [
+          ['Active Subscribers', `${s.eligible || 0}`, ''],
+          ['New Subscribers', `${s.contacts || 0}`, ''],
+          ['Unsubscribed', `${s.unsubscribed || 0}`, ''],
+        ])}
+        <div class="panel quick-card">
+          <h2>✈ Quick Test Email</h2>
+          <p class="hint">Send a test email to preview your setup.</p>
+          <div class="quick-input"><input id="dashQuickTo" placeholder="Enter email address..." /><span>✉</span></div>
+          <button id="dashQuickSend" class="wide">Send Test Email</button>
+          <p class="hint">Use commas to add multiple email addresses.</p>
+        </div>
+      </aside>
     </div>`;
+  $('#dashNewCampaign').addEventListener('click', () => go('campaigns'));
+  $('#dashGenerate').addEventListener('click', () => go('templates'));
+  $('#dashSendTest').addEventListener('click', () => go('testEmail'));
+  $('#viewCampaigns').addEventListener('click', () => go('campaigns'));
+  $('#dashQuickSend').addEventListener('click', async () => {
+    const to = $('#dashQuickTo').value.trim();
+    if (!to) return toast('Enter an email address', 'err');
+    try {
+      const r = await api('/api/send-single', { method: 'POST', body: { to, subject: 'Test from Email Campaigner', html: '<p>Hello! This is a quick test email from Email Campaigner.</p>' } });
+      toast(r.dryRun ? `DRY RUN - logged test for ${to}` : `Sent test to ${to}`);
+    } catch (e) { toast(e.message, 'err'); }
+  });
 };
+const spark = (tone = 'blue') => `<svg class="sparkline ${tone}" viewBox="0 0 160 44" preserveAspectRatio="none" aria-hidden="true"><path d="M0 32 L18 38 L34 29 L50 26 L68 17 L84 20 L102 14 L120 24 L136 12 L152 16 L160 10"/></svg>`;
+const metricCard = (icon, label, n, delta, tone) => `
+  <div class="metric-card ${tone}">
+    <div class="metric-head"><span class="metric-icon">${icon}</span><span>${esc(label)}</span><button class="kebab">•••</button></div>
+    <div class="metric-value">${esc(n)}</div>
+    <div class="metric-delta">↑ ${esc(delta)}</div>
+    ${spark(tone)}
+  </div>`;
+const sidePanel = (title, rows) => `
+  <div class="panel side-panel">
+    <div class="panel-title"><h2>${esc(title)}</h2><button class="ghost sm">View all</button></div>
+    ${rows.map(([name, meta, state]) => `<div class="side-row"><span class="side-dot">⌘</span><div><b>${esc(name)}</b><small>${esc(meta)}</small></div>${state ? `<em>${esc(state)}</em>` : ''}<span class="chev">›</span></div>`).join('')}
+  </div>`;
 const card = (n, label) => `<div class="card"><div class="num">${n ?? 0}</div><div class="label">${label}</div></div>`;
 
 // ── Contacts ─────────────────────────────────────────────
