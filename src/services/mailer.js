@@ -18,11 +18,22 @@ function buildTransporter() {
   return transporter;
 }
 
-export async function verifySmtp() {
-  if (!config.smtp.host) return { ok: false, error: 'No SMTP_HOST configured' };
+// Pass `overrideSmtp` to test arbitrary (e.g. unsaved form) settings without
+// touching the cached transporter used for real sends.
+export async function verifySmtp(overrideSmtp) {
+  const smtp = overrideSmtp || config.smtp;
+  if (!smtp.host) return { ok: false, error: 'No SMTP host configured' };
   try {
-    await buildTransporter().verify();
-    return { ok: true, host: config.smtp.host, port: config.smtp.port };
+    const t = overrideSmtp
+      ? nodemailer.createTransport({
+          host: smtp.host,
+          port: smtp.port,
+          secure: smtp.secure,
+          auth: smtp.user ? { user: smtp.user, pass: smtp.pass } : undefined,
+        })
+      : buildTransporter();
+    await t.verify();
+    return { ok: true, host: smtp.host, port: smtp.port };
   } catch (err) {
     return { ok: false, error: err.message };
   }

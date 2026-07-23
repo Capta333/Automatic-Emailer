@@ -36,5 +36,10 @@ export default async function settingsRoutes(app) {
     return publicConfig();
   });
 
-  app.post('/api/settings/test-smtp', async () => verifySmtp());
+  app.post('/api/settings/test-smtp', async (req) => {
+    const body = req.body || {};
+    if (!body.host) return verifySmtp();
+    const pass = body.pass === '••••••' || !body.pass ? config.smtp.pass : body.pass;
+    return verifySmtp({ host: body.host, port: Number(body.port) || 587, secure: !!body.secure, user: body.user, pass });
+  });
 }

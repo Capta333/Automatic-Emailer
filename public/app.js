@@ -931,6 +931,13 @@ views.settings = async () => {
       <div class="field"><label>Inbound secret (header x-make-secret to trigger campaigns)</label><input id="s_makesec" value="${esc(s.make.inboundSecret)}" /></div>
       <p class="hint">See <code>docs/MAKE_INTEGRATION.md</code> for scenario setup.</p>
     </div>
+    <div class="panel">
+      <h2>Account</h2>
+      ${authDisabled
+        ? '<p class="hint">Local mode — no login, nothing to sign out of.</p>'
+        : `<p class="hint">Signed in as ${esc(currentUser ? currentUser.email : '')}</p>
+           <button class="ghost" id="s_signout">Sign out</button>`}
+    </div>
     ${currentUser && currentUser.role === 'admin' ? `
     <div class="panel">
       <h2>Users</h2>
@@ -950,10 +957,20 @@ views.settings = async () => {
   if (currentUser && currentUser.role === 'admin' && !authDisabled) renderUsers();
 
   $('#s_testsmtp').addEventListener('click', async () => {
-    const r = await api('/api/settings/test-smtp', { method: 'POST' });
+    const body = {
+      host: $('#s_host').value, port: +$('#s_port').value, secure: $('#s_secure').checked,
+      user: $('#s_user').value, pass: $('#s_pass').value,
+    };
+    const r = await api('/api/settings/test-smtp', { method: 'POST', body });
     toast(r.ok ? `SMTP OK (${r.host})` : `SMTP failed: ${r.error}`, r.ok ? 'ok' : 'err');
   });
   $('#s_sendtest').addEventListener('click', () => sendTestModal());
+  if ($('#s_signout')) {
+    $('#s_signout').addEventListener('click', async () => {
+      try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
+      window.location = '/login';
+    });
+  }
   $('#s_save').addEventListener('click', async () => {
     const body = {
       dryRun: $('#s_dry').checked,
